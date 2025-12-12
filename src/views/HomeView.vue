@@ -1,16 +1,51 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import type { Task, Category } from '../types'
+import TaskFormModal from '../components/TaskFormModal.vue'
 import task1 from '../assets/images/tas1.jpg'
 import imgError from '../assets/images/imgError.jpeg'
+import { Icon } from '@iconify/vue'
 
-const categories = [
-  { id: 1, name: 'Work', color: '#3b82f6' },
-  { id: 2, name: 'Personal', color: '#10b981' },
-  { id: 3, name: 'Shopping', color: '#f59e0b' },
-  { id: 4, name: 'Health', color: '#ef4444' },
+const categories: Category[] = [
+  {
+    id: 1,
+    name: 'Work',
+    color: '#3b82f6',
+    icon_url: 'material-symbols:work',
+    image_filter: 'default',
+    image_seed_offset: 100,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    name: 'Personal',
+    color: '#10b981',
+    icon_url: 'material-symbols:person',
+    image_filter: 'default',
+    image_seed_offset: 200,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    name: 'Shopping',
+    color: '#f59e0b',
+    icon_url: 'material-symbols:shopping-bag-speed',
+    image_filter: 'default',
+    image_seed_offset: 300,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    name: 'Health',
+    color: '#ef4444',
+    icon_url: 'material-symbols:health-metrics-rounded',
+    image_filter: 'default',
+    image_seed_offset: 400,
+    created_at: new Date().toISOString(),
+  },
 ]
 
-const tasks = ref([
+const tasks = ref<Task[]>([
   {
     id: 1,
     title: 'Complete Project Proposal',
@@ -21,7 +56,7 @@ const tasks = ref([
     completed: false,
     due_date: '2025-12-10',
     image_url: task1,
-    // image_url: '../assets/images/tas1.jpg',
+    created_at: new Date().toISOString(),
   },
   {
     id: 2,
@@ -32,6 +67,7 @@ const tasks = ref([
     completed: false,
     due_date: '2025-12-13',
     image_url: task1,
+    created_at: new Date().toISOString(),
   },
   {
     id: 3,
@@ -42,6 +78,7 @@ const tasks = ref([
     completed: true,
     due_date: '2025-12-10',
     image_url: task1,
+    created_at: new Date().toISOString(),
   },
   {
     id: 4,
@@ -52,6 +89,7 @@ const tasks = ref([
     completed: false,
     due_date: '2025-12-12',
     image_url: task1,
+    created_at: new Date().toISOString(),
   },
   {
     id: 5,
@@ -62,13 +100,61 @@ const tasks = ref([
     completed: false,
     due_date: '2024-12-15',
     image_url: task1,
+    created_at: new Date().toISOString(),
   },
 ])
 
-// tasks.value = []
-
 const selectedCategory = ref('all')
 const imageErrors = ref<Record<number, boolean>>({})
+const isFormModalOpen = ref(false)
+const editingTask = ref<Task | null>(null)
+
+const openAddModal = () => {
+  editingTask.value = null
+  isFormModalOpen.value = true
+}
+
+const openEditModal = (task: Task) => {
+  editingTask.value = { ...task }
+  isFormModalOpen.value = true
+}
+
+const closeModal = () => {
+  isFormModalOpen.value = false
+  editingTask.value = null
+}
+
+const saveTask = (taskData: any) => {
+  if (editingTask.value) {
+    const index = tasks.value.findIndex((t) => t.id === editingTask.value!.id)
+    if (index !== -1) {
+      tasks.value[index] = {
+        ...tasks.value[index],
+        ...taskData,
+        updated_at: new Date().toISOString(),
+      } as Task
+    }
+  } else {
+    const newTask: Task = {
+      id: Date.now(),
+      title: taskData.title,
+      description: taskData.description || null,
+      category_id: taskData.category_id,
+      priority: taskData.priority || 'medium',
+      due_date: taskData.due_date || null,
+      completed: false,
+      image_url: task1,
+      created_at: new Date().toISOString(),
+    }
+    tasks.value.unshift(newTask)
+  }
+}
+
+const deleteTask = (taskId: number) => {
+  if (confirm('Are you sure you want to delete this task?')) {
+    tasks.value = tasks.value.filter((t) => t.id !== taskId)
+  }
+}
 
 const getCategoryById = (id: number) => {
   return categories.find((cat) => cat.id === id)
@@ -95,7 +181,8 @@ const toggleTask = (taskId: number) => {
   }
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return 'No date'
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
@@ -128,13 +215,15 @@ const formatDate = (dateString: string) => {
               : 'bg-white text-gray-700 border border-gray-300'
           "
           :style="selectedCategory === cat.name ? { backgroundColor: cat.color } : {}"
-          class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md"
+          class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md flex justify-center items-center gap-2"
         >
+          <Icon :icon="cat.icon_url" width="16" height="16" />
           {{ cat.name }}
         </button>
       </div>
 
       <button
+        @click="openAddModal"
         class="bg-gray-700 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 mx-auto transition"
       >
         <svg
@@ -155,7 +244,6 @@ const formatDate = (dateString: string) => {
       </button>
     </div>
 
-    <!-- tasks lists -->
     <div class="space-y-3">
       <div
         v-for="task in filteredTasks"
@@ -172,7 +260,7 @@ const formatDate = (dateString: string) => {
 
           <div class="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-gray-100">
             <img
-              v-if="!imageErrors[task.id]"
+              v-if="!imageErrors[task.id] && task.image_url"
               :src="task.image_url"
               :alt="task.title"
               @error="handleImageError(task.id)"
@@ -197,9 +285,10 @@ const formatDate = (dateString: string) => {
 
             <div class="flex flex-wrap gap-2 text-xs" :class="{ 'line-through': task.completed }">
               <span
-                class="px-2 py-1 rounded-md font-medium text-white"
+                class="px-2 py-1 rounded-md font-medium text-white flex justify-center items-center gap-2"
                 :style="{ backgroundColor: getCategoryById(task.category_id)?.color }"
               >
+                <Icon :icon="getCategoryById(task.category_id)!.icon_url" width="16" height="16" />
                 {{ getCategoryById(task.category_id)?.name }}
               </span>
               <span
@@ -219,7 +308,29 @@ const formatDate = (dateString: string) => {
           </div>
 
           <button
-            class="text-gray-400 hover:text-gray-700 transition shrink-0 p-1"
+            @click="openEditModal(task)"
+            class="text-gray-400 hover:text-blue-600 transition shrink-0 p-1"
+            title="Edit task"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
+
+          <button
+            @click="deleteTask(task.id)"
+            class="text-gray-400 hover:text-red-600 transition shrink-0 p-1"
             title="Delete task"
           >
             <svg
@@ -260,6 +371,7 @@ const formatDate = (dateString: string) => {
       </div>
       <p class="text-lg text-gray-600 mb-4">No tasks found</p>
       <button
+        @click="openAddModal"
         class="bg-gray-700 hover:bg-gray-800 text-white px-6 py-2 rounded-lg text-sm font-medium transition"
       >
         Create your first task
@@ -274,5 +386,13 @@ const formatDate = (dateString: string) => {
         Never do tomorrow what you can do today. Procrastination is the thief of time.
       </p>
     </div>
+
+    <TaskFormModal
+      :is-open="isFormModalOpen"
+      :task="editingTask"
+      :categories="categories"
+      @close="closeModal"
+      @save="saveTask"
+    />
   </div>
 </template>
