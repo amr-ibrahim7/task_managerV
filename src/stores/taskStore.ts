@@ -2,12 +2,24 @@ import { defineStore } from 'pinia'
 import apiClient from '../services/api'
 import type { Task, Category, CreateTaskPayload } from '../types'
 
+type FilterType = 'all' | 'category' | 'status' | 'priority'
+type FilterValue = number | boolean | string | null
+
 export const useTaskStore = defineStore('task', {
   state: () => ({
     tasks: [] as Task[],
     categories: [] as Category[],
     isLoading: false,
     error: null as string | null,
+
+    currentPage: 1,
+    itemsPerPage: 6,
+    hasMoreTasks: true,
+
+    currentFilter: {
+      type: 'all' as FilterType,
+      value: null as FilterValue,
+    },
   }),
 
   actions: {
@@ -24,15 +36,47 @@ export const useTaskStore = defineStore('task', {
     async fetchTasks() {
       this.isLoading = true
       this.error = null
+
       try {
-        const { data } = await apiClient.get<Task[]>('/tasks?order=created_at.desc')
+        const offset = (this.currentPage - 1) * this.itemsPerPage
+        let query = `/tasks?order=created_at.desc&limit=${this.itemsPerPage}&offset=${offset}`
+
+        if (this.currentFilter.type === 'category') {
+          query += `&category_id=eq.${this.currentFilter.value}`
+        } else if (this.currentFilter.type === 'status') {
+          query += `&completed=eq.${this.currentFilter.value}`
+        } else if (this.currentFilter.type === 'priority') {
+          query += `&priority=eq.${this.currentFilter.value}`
+        }
+
+        const { data } = await apiClient.get<Task[]>(query)
+
         this.tasks = data
-      } catch (err) {
+
+        this.hasMoreTasks = data.length === this.itemsPerPage
+      } catch (err: unknown) {
         this.error = 'Failed to load tasks'
-        console.error(err)
+
+        if (err instanceof Error) {
+          console.error(err.message)
+        } else {
+          console.error('An unknown error occurred', err)
+        }
       } finally {
         this.isLoading = false
       }
+    },
+
+    setFilter(type: FilterType, value: FilterValue = null) {
+      this.currentFilter = { type, value }
+      this.currentPage = 1
+      this.fetchTasks()
+    },
+
+    changePage(newPage: number) {
+      if (newPage < 1) return
+      this.currentPage = newPage
+      this.fetchTasks()
     },
 
     async addTask(payload: CreateTaskPayload) {

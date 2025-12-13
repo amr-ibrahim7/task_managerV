@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useTaskStore } from '../stores/taskStore'
-import type { Task } from '../types'
+import type { CreateTaskPayload, Task } from '../types'
 import imgError from '../assets/images/imgError.jpeg'
 import TaskFormModal from '@/components/TaskFormModal.vue'
 
@@ -16,6 +16,13 @@ const selectedCategory = ref('all')
 const imageErrors = ref<Record<number, boolean>>({})
 const isFormModalOpen = ref(false)
 const editingTask = ref<Task | null>(null)
+
+const filterAll = () => taskStore.setFilter('all')
+const filterStatus = (isCompleted: boolean) => taskStore.setFilter('status', isCompleted)
+const filterPriority = (prio: string) => taskStore.setFilter('priority', prio)
+
+const nextPage = () => taskStore.changePage(taskStore.currentPage + 1)
+const prevPage = () => taskStore.changePage(taskStore.currentPage - 1)
 
 const openAddModal = () => {
   editingTask.value = null
@@ -32,7 +39,7 @@ const closeModal = () => {
   editingTask.value = null
 }
 
-const saveTask = async (taskData: any) => {
+const saveTask = async (taskData: CreateTaskPayload & { completed?: boolean }) => {
   try {
     if (editingTask.value) {
       await taskStore.updateTask(editingTask.value.id, taskData)
@@ -107,7 +114,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
 
         <div class="flex flex-wrap justify-center gap-2 mb-6">
           <button
-            @click="selectedCategory = 'all'"
+            @click="filterAll"
             :class="
               selectedCategory === 'all'
                 ? 'bg-gray-700 text-white'
@@ -146,6 +153,74 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
         </div>
 
         <button
+          @click="filterStatus(false)"
+          :class="
+            taskStore.currentFilter.type === 'status' && taskStore.currentFilter.value === false
+              ? 'bg-blue-900 text-white'
+              : 'bg-blue-600 border'
+          "
+          class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        >
+          Pending
+        </button>
+
+        <button
+          @click="filterStatus(true)"
+          :class="
+            taskStore.currentFilter.type === 'status' && taskStore.currentFilter.value === true
+              ? 'bg-green-900 text-white'
+              : 'bg-green-600 border'
+          "
+          class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        >
+          Done
+        </button>
+
+        <div class="flex items-center gap-2 border-l pl-2 ml-2 border-gray-300">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:inline"
+            >Priority</span
+          >
+
+          <button
+            @click="filterPriority('high')"
+            :class="
+              taskStore.currentFilter.type === 'priority' &&
+              taskStore.currentFilter.value === 'high'
+                ? 'bg-red-100 text-red-700 ring-2 ring-red-500 ring-offset-1'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-red-50'
+            "
+            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
+          >
+            High
+          </button>
+
+          <button
+            @click="filterPriority('medium')"
+            :class="
+              taskStore.currentFilter.type === 'priority' &&
+              taskStore.currentFilter.value === 'medium'
+                ? 'bg-yellow-100 text-yellow-700 ring-2 ring-yellow-500 ring-offset-1'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-yellow-50'
+            "
+            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
+          >
+            Medium
+          </button>
+
+          <button
+            @click="filterPriority('low')"
+            :class="
+              taskStore.currentFilter.type === 'priority' && taskStore.currentFilter.value === 'low'
+                ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500 ring-offset-1'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-blue-50'
+            "
+            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
+          >
+            Low
+          </button>
+        </div>
+
+        <button
           @click="openAddModal"
           class="bg-gray-700 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 mx-auto transition"
         >
@@ -169,7 +244,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
 
       <div class="space-y-3">
         <div
-          v-for="task in filteredTasks"
+          v-for="task in taskStore.tasks"
           :key="task.id"
           class="bg-white border border-gray-300 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden"
         >
@@ -310,5 +385,25 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
       @close="closeModal"
       @save="saveTask"
     />
+
+    <div class="flex justify-center items-center gap-4 mt-8 pt-4 border-t border-gray-100">
+      <button
+        @click="prevPage"
+        :disabled="taskStore.currentPage === 1 || taskStore.isLoading"
+        class="btn btn-outline btn-sm bg-gray-950"
+      >
+        Previous
+      </button>
+
+      <span class="text-sm font-medium text-gray-600"> Page {{ taskStore.currentPage }} </span>
+
+      <button
+        @click="nextPage"
+        :disabled="!taskStore.hasMoreTasks || taskStore.isLoading"
+        class="btn btn-outline btn-sm bg-gray-950"
+      >
+        Next
+      </button>
+    </div>
   </div>
 </template>

@@ -119,7 +119,7 @@ const handleSubmit = async () => {
 const handleClose = () => {
   if (!isSubmitting.value) {
     emit('close')
-    setTimeout(resetForm, 300)
+    // setTimeout(resetForm, 300)
   }
 }
 
