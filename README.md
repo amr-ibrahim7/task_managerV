@@ -3,6 +3,10 @@
 A Task Management application built with **Vue 3**, **TypeScript**, and **Tailwind CSS**.
 This project connects to a Supabase backend using direct HTTP requests (Axios) without using the Supabase SDK, as per the assessment requirements.
 
+<br/>
+<br/>
+<img width="1280" height="620" alt="app1" src="https://github.com/user-attachments/assets/08d0eb4d-4d72-4287-90c7-4ad87f1a6ff1" />
+
 ## Tech Stack
 
 - **Framework:** Vue 3 (Composition API + Script Setup)
@@ -41,7 +45,7 @@ This project connects to a Supabase backend using direct HTTP requests (Axios) w
    Create a `.env.local` file in the root directory:
 
    ```env
-   VITE_API_URL=https://kbkzrznkv.supabase.co/rest/v1
+   VITE_API_URL=https://supabase.co/rest/v1
    VITE_API_KEY=your_api_key_here
    ```
 
