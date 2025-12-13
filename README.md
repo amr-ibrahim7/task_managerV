@@ -1,48 +1,59 @@
-# .
+# Task Manager App
 
-This template should help get you started developing with Vue 3 in Vite.
+A Task Management application built with **Vue 3**, **TypeScript**, and **Tailwind CSS**.
+This project connects to a Supabase backend using direct HTTP requests (Axios) without using the Supabase SDK, as per the assessment requirements.
 
-## Recommended IDE Setup
+## Tech Stack
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Framework:** Vue 3 (Composition API + Script Setup)
+- **State Management:** Pinia
+- **Styling:** Tailwind CSS + DaisyUI
+- **HTTP Client:** Axios
+- **Build Tool:** Vite / pnpm
 
-## Recommended Browser Setup
+## Features Implemented
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- **CRUD Operations:** Create, Read, Update, and Delete tasks.
+- **Server-Side Pagination:** Implemented `limit` and `offset` for better performance.
+- **Advanced Filtering:** Filter by Status (Pending/Done), Priority, and Category directly from the server.
+- **UI & UX:**
+  - Used **DaisyUI** components for Modals (Add/Edit/Delete) and Toast notifications.
+- **Form Handling:** Validation for required fields and dates.
+- **Loading States:** Proper loading spinners for buttons and data fetching.
 
-## Type Support for `.vue` Imports in TS
+## How to Run
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+1. **Clone the repo**
 
-## Customize configuration
+   ```bash
+   git clone <https://github.com/amr-ibrahim7/task_managerV.git>
+   cd task-manager
+   ```
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+2. **Install dependencies**
+   (This project uses `pnpm`)
 
-## Project Setup
+   ```bash
+   pnpm install
+   ```
 
-```sh
-pnpm install
-```
+3. **Setup Environment Variables**
+   Create a `.env.local` file in the root directory:
 
-### Compile and Hot-Reload for Development
+   ```env
+   VITE_API_URL=https://kbkzrznkv.supabase.co/rest/v1
+   VITE_API_KEY=your_api_key_here
+   ```
 
-```sh
-pnpm dev
-```
+4. **Start the server**
+   ```bash
+   pnpm dev
+   ```
 
-### Type-Check, Compile and Minify for Production
+## 📂 Project Structure
 
-```sh
-pnpm build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-pnpm lint
-```
+- `src/stores`: Pinia store handles all API logic and state (Tasks, Categories, Pagination).
+- `src/services`: Axios instance configuration with headers.
+- `src/components`: Reusable components like `TaskFormModal`.
+- `src/views`: Main page logic (`HomeView`).
+- `src/types`: TypeScript interfaces for Type Safety.
