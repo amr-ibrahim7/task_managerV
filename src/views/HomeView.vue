@@ -12,17 +12,29 @@ onMounted(async () => {
   await taskStore.fetchTasks()
 })
 
-const selectedCategory = ref('all')
+const filterCategory = (id: number) => taskStore.setFilter('category', id)
 const imageErrors = ref<Record<number, boolean>>({})
 const isFormModalOpen = ref(false)
 const editingTask = ref<Task | null>(null)
+const isSaving = ref(false)
 
 const filterAll = () => taskStore.setFilter('all')
 const filterStatus = (isCompleted: boolean) => taskStore.setFilter('status', isCompleted)
 const filterPriority = (prio: string) => taskStore.setFilter('priority', prio)
 
+const toast = ref({ show: false, message: '', type: 'success' })
+const deleteModalOpen = ref(false)
+const taskToDeleteId = ref<number | null>(null)
+
 const nextPage = () => taskStore.changePage(taskStore.currentPage + 1)
 const prevPage = () => taskStore.changePage(taskStore.currentPage - 1)
+
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toast.value = { show: true, message, type }
+  setTimeout(() => {
+    toast.value.show = false
+  }, 3000)
+}
 
 const openAddModal = () => {
   editingTask.value = null
@@ -40,22 +52,36 @@ const closeModal = () => {
 }
 
 const saveTask = async (taskData: CreateTaskPayload & { completed?: boolean }) => {
+  isSaving.value = true
+
   try {
     if (editingTask.value) {
       await taskStore.updateTask(editingTask.value.id, taskData)
+      showToast('Task updated successfully', 'success')
     } else {
       await taskStore.addTask(taskData)
+      showToast('Task created successfully', 'success')
     }
-
     closeModal()
   } catch (error) {
-    alert('Failed to save task: ' + error)
+    showToast('Failed to save task', 'error')
+    console.error(error)
+  } finally {
+    isSaving.value = false
   }
 }
 
-const deleteTask = async (taskId: number) => {
-  if (confirm('Are you sure you want to delete this task?')) {
-    await taskStore.deleteTask(taskId)
+const confirmDelete = (taskId: number) => {
+  taskToDeleteId.value = taskId
+  deleteModalOpen.value = true
+}
+
+const executeDelete = async () => {
+  if (taskToDeleteId.value) {
+    await taskStore.deleteTask(taskToDeleteId.value)
+    showToast('Task deleted successfully', 'success')
+    deleteModalOpen.value = false
+    taskToDeleteId.value = null
   }
 }
 
@@ -79,14 +105,6 @@ const formatDate = (dateString: string | null) => {
 const handleImageError = (taskId: number) => {
   imageErrors.value[taskId] = true
 }
-
-const filteredTasks = computed(() => {
-  if (selectedCategory.value === 'all') {
-    return taskStore.tasks
-  }
-  const category = taskStore.categories.find((c) => c.name === selectedCategory.value)
-  return taskStore.tasks.filter((t) => t.category_id === category?.id)
-})
 
 const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed).length)
 </script>
@@ -116,7 +134,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
           <button
             @click="filterAll"
             :class="
-              selectedCategory === 'all'
+              taskStore.currentFilter.type === 'all'
                 ? 'bg-gray-700 text-white'
                 : 'bg-white text-gray-700 border border-gray-300'
             "
@@ -128,14 +146,15 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
           <button
             v-for="cat in taskStore.categories"
             :key="cat.id"
-            @click="selectedCategory = cat.name"
+            @click="filterCategory(cat.id)"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md flex justify-center items-center gap-2 text-white"
             :class="
-              selectedCategory === cat.name
-                ? 'text-white'
-                : 'bg-gray-800 text-white border border-gray-300'
+              taskStore.currentFilter.type === 'category' &&
+              taskStore.currentFilter.value === cat.id
+                ? 'ring-2 ring-offset-2 ring-gray-400 opacity-100 scale-105 shadow-lg'
+                : 'opacity-75 hover:opacity-100 hover:scale-105'
             "
-            :style="selectedCategory === cat.name ? { backgroundColor: cat.color } : {}"
-            class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md flex justify-center items-center gap-2"
+            :style="{ backgroundColor: cat.color }"
           >
             <img
               v-if="cat.icon_url"
@@ -338,7 +357,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
             </button>
 
             <button
-              @click="deleteTask(task.id)"
+              @click="confirmDelete(task.id)"
               class="text-gray-400 hover:text-red-600 transition shrink-0 p-1"
               title="Delete"
             >
@@ -361,7 +380,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
         </div>
       </div>
 
-      <div v-if="filteredTasks.length === 0" class="text-center py-12">
+      <div v-if="!taskStore.isLoading && taskStore.tasks.length === 0" class="text-center py-12">
         <p class="text-lg text-gray-600 mb-4">No tasks found</p>
         <button
           @click="openAddModal"
@@ -382,6 +401,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
       :is-open="isFormModalOpen"
       :task="editingTask"
       :categories="taskStore.categories"
+      :is-loading="isSaving"
       @close="closeModal"
       @save="saveTask"
     />
@@ -405,5 +425,61 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
         Next
       </button>
     </div>
+
+    <div v-if="toast.show" class="toast toast-end toast-bottom z-50">
+      <div class="alert" :class="toast.type === 'error' ? 'alert-error' : 'alert-success'">
+        <svg
+          v-if="toast.type === 'success'"
+          xmlns="http://www.w3.org/2000/svg"
+          class="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <svg
+          v-else
+          xmlns="http://www.w3.org/2000/svg"
+          class="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+
+        <span class="text-white font-medium">{{ toast.message }}</span>
+      </div>
+    </div>
+
+    <Transition name="modal">
+      <div
+        v-if="deleteModalOpen"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      >
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+          <h3 class="font-bold text-lg text-gray-800">Delete Task?</h3>
+          <p class="py-4 text-gray-600">
+            Are you sure you want to delete this task? This action cannot be undone.
+          </p>
+          <div class="modal-action flex gap-2 mt-0">
+            ->
+            <button class="btn btn-ghost flex-1 bg-gray-900" @click="deleteModalOpen = false">
+              Cancel
+            </button>
+            <button class="btn btn-error text-white flex-1" @click="executeDelete">Delete</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>

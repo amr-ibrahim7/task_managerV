@@ -6,6 +6,7 @@ interface Props {
   isOpen: boolean
   task?: Task | null
   categories: Category[]
+  isLoading: boolean
 }
 
 interface Emits {
@@ -27,7 +28,6 @@ const formData = ref<CreateTaskPayload & { completed: boolean }>({
 })
 
 const errors = ref<Record<string, string>>({})
-const isSubmitting = ref(false)
 
 const isEditMode = computed(() => !!props.task?.id)
 const modalTitle = computed(() => (isEditMode.value ? 'Edit Task' : 'Add New Task'))
@@ -89,10 +89,8 @@ const validateForm = (): boolean => {
   return Object.keys(errors.value).length === 0
 }
 
-const handleSubmit = async () => {
+const handleSubmit = () => {
   if (!validateForm()) return
-
-  isSubmitting.value = true
 
   const taskPayload = {
     title: formData.value.title,
@@ -103,23 +101,16 @@ const handleSubmit = async () => {
     image_url: formData.value.image_url || undefined,
   }
 
-  try {
-    if (isEditMode.value) {
-      await emit('save', { ...taskPayload, completed: formData.value.completed })
-    } else {
-      await emit('save', taskPayload)
-    }
-  } catch (error) {
-    console.error('error saving task:', error)
-  } finally {
-    isSubmitting.value = false
+  if (isEditMode.value) {
+    emit('save', { ...taskPayload, completed: formData.value.completed })
+  } else {
+    emit('save', taskPayload)
   }
 }
 
 const handleClose = () => {
-  if (!isSubmitting.value) {
+  if (!props.isLoading) {
     emit('close')
-    // setTimeout(resetForm, 300)
   }
 }
 
@@ -141,8 +132,8 @@ const getTodayDate = () => {
           <h2 class="text-2xl font-bold text-gray-800">{{ modalTitle }}</h2>
           <button
             @click="handleClose"
-            :disabled="isSubmitting"
-            class="text-gray-400 hover:text-gray-600 transition p-1 rounded-lg hover:bg-gray-100"
+            :disabled="isLoading"
+            class="text-gray-400 hover:text-gray-600 transition p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -245,7 +236,7 @@ const getTodayDate = () => {
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Image URL (Optional- auto-generate )
+              Image URL (Optional - auto-generate)
             </label>
             <input
               v-model="formData.image_url"
@@ -271,18 +262,18 @@ const getTodayDate = () => {
             <button
               type="button"
               @click="handleClose"
-              :disabled="isSubmitting"
+              :disabled="isLoading"
               class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              :disabled="isSubmitting"
+              :disabled="isLoading"
               class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <svg
-                v-if="isSubmitting"
+                v-if="isLoading"
                 class="animate-spin h-5 w-5"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -302,7 +293,7 @@ const getTodayDate = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              {{ isSubmitting ? 'Saving...' : isEditMode ? 'Update Task' : 'Create Task' }}
+              {{ isLoading ? 'Saving...' : isEditMode ? 'Update Task' : 'Create Task' }}
             </button>
           </div>
         </form>
