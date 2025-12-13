@@ -22,6 +22,7 @@ const formData = ref<CreateTaskPayload & { completed: boolean }>({
   category_id: 0,
   priority: 'medium',
   due_date: '',
+  image_url: '',
   completed: false,
 })
 
@@ -89,17 +90,30 @@ const validateForm = (): boolean => {
 }
 
 const handleSubmit = async () => {
-  if (!validateForm()) {
-    return
-  }
+  if (!validateForm()) return
 
   isSubmitting.value = true
 
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  const taskPayload = {
+    title: formData.value.title,
+    category_id: formData.value.category_id,
+    description: formData.value.description || undefined,
+    priority: formData.value.priority,
+    due_date: formData.value.due_date || undefined,
+    image_url: formData.value.image_url || undefined,
+  }
 
-  emit('save', { ...formData.value })
-  isSubmitting.value = false
-  handleClose()
+  try {
+    if (isEditMode.value) {
+      await emit('save', { ...taskPayload, completed: formData.value.completed })
+    } else {
+      await emit('save', taskPayload)
+    }
+  } catch (error) {
+    console.error('error saving task:', error)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const handleClose = () => {
@@ -227,6 +241,18 @@ const getTodayDate = () => {
               />
               <p v-if="errors.due_date" class="text-red-500 text-sm mt-1">{{ errors.due_date }}</p>
             </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Image URL (Optional- auto-generate )
+            </label>
+            <input
+              v-model="formData.image_url"
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 transition text-gray-700"
+            />
           </div>
 
           <div v-if="isEditMode" class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
