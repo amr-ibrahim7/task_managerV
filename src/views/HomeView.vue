@@ -12,19 +12,18 @@ onMounted(async () => {
   await taskStore.fetchTasks()
 })
 
-const filterCategory = (id: number) => taskStore.setFilter('category', id)
+const filterCategory = (id: number) => taskStore.updateFilter('category', id)
+const filterStatus = (status: boolean) => taskStore.updateFilter('status', status)
+const filterPriority = (priority: string) => taskStore.updateFilter('priority', priority)
+const clearFilters = () => taskStore.clearAllFilters()
+
 const imageErrors = ref<Record<number, boolean>>({})
 const isFormModalOpen = ref(false)
 const editingTask = ref<Task | null>(null)
 const isSaving = ref(false)
-
-const filterAll = () => taskStore.setFilter('all')
-const filterStatus = (isCompleted: boolean) => taskStore.setFilter('status', isCompleted)
-const filterPriority = (prio: string) => taskStore.setFilter('priority', prio)
-
-const toast = ref({ show: false, message: '', type: 'success' })
 const deleteModalOpen = ref(false)
 const taskToDeleteId = ref<number | null>(null)
+const toast = ref({ show: false, message: '', type: 'success' })
 
 const nextPage = () => taskStore.changePage(taskStore.currentPage + 1)
 const prevPage = () => taskStore.changePage(taskStore.currentPage - 1)
@@ -107,238 +106,234 @@ const handleImageError = (taskId: number) => {
 }
 
 const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed).length)
+
+const hasActiveFilters = computed(() => {
+  return (
+    taskStore.filters.category !== null ||
+    taskStore.filters.status !== null ||
+    taskStore.filters.priority !== null
+  )
+})
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="max-w-5xl mx-auto px-4 py-8">
     <div
-      v-if="taskStore.isLoading && taskStore.tasks.length === 0"
+      v-if="taskStore.isLoading && taskStore.tasks.length === 0 && !hasActiveFilters"
       class="flex justify-center py-20"
     >
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-700"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
     </div>
 
     <div
       v-else-if="taskStore.error"
-      class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"
+      class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6"
     >
-      <strong class="font-bold">Error!</strong>
-      <span class="block sm:inline"> {{ taskStore.error }}</span>
+      <strong class="font-bold">Error: </strong>
+      <span>{{ taskStore.error }}</span>
     </div>
 
     <div v-else>
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-700 mb-4">Task Manager Web Application</h1>
+      <header class="mb-10 text-center">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6">
+          Task Manager Web Application
+        </h1>
 
-        <div class="flex flex-wrap justify-center gap-2 mb-6">
-          <button
-            @click="filterAll"
-            :class="
-              taskStore.currentFilter.type === 'all'
-                ? 'bg-gray-700 text-white'
-                : 'bg-white text-gray-700 border border-gray-300'
-            "
-            class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md"
-          >
-            All Tasks
-          </button>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
+          <div class="flex flex-col gap-6">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-bold text-gray-500 uppercase tracking-wider"
+                  >Categories</span
+                >
+                <button
+                  v-if="hasActiveFilters"
+                  @click="clearFilters"
+                  class="text-xs text-blue-600 hover:underline font-medium"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+              <div class="flex flex-wrap justify-center gap-2">
+                <button
+                  v-for="cat in taskStore.categories"
+                  :key="cat.id"
+                  @click="filterCategory(cat.id)"
+                  :style="{ backgroundColor: cat.color }"
+                  class="px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 text-white"
+                  :class="
+                    taskStore.filters.category === cat.id
+                      ? 'ring-4 ring-offset-2 ring-gray-300 scale-105 shadow-md'
+                      : 'opacity-60 hover:opacity-100'
+                  "
+                >
+                  <img
+                    v-if="cat.icon_url"
+                    :src="cat.icon_url"
+                    class="w-4 h-4 brightness-0 invert"
+                    alt=""
+                  />
+                  {{ cat.name }}
+                </button>
+              </div>
+            </div>
 
-          <button
-            v-for="cat in taskStore.categories"
-            :key="cat.id"
-            @click="filterCategory(cat.id)"
-            class="px-4 py-2 rounded-lg text-sm font-medium transition hover:shadow-md flex justify-center items-center gap-2 text-white"
-            :class="
-              taskStore.currentFilter.type === 'category' &&
-              taskStore.currentFilter.value === cat.id
-                ? 'ring-2 ring-offset-2 ring-gray-400 opacity-100 scale-105 shadow-lg'
-                : 'opacity-75 hover:opacity-100 hover:scale-105'
-            "
-            :style="{ backgroundColor: cat.color }"
-          >
-            <img
-              v-if="cat.icon_url"
-              :src="cat.icon_url"
-              :class="{
-                grayscale: cat.image_filter === 'grayscale',
-                sepia: cat.image_filter === 'sepia',
-                'blur-sm': cat.image_filter === 'blur',
-              }"
-              class="w-full h-full object-cover"
-              alt="icon"
-            />
-            {{ cat.name }}
-          </button>
-        </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-50">
+              <div>
+                <span class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-3"
+                  >Status</span
+                >
+                <div class="flex gap-2 justify-center md:justify-start">
+                  <button
+                    @click="filterStatus(false)"
+                    :class="
+                      taskStore.filters.status === false
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    "
+                    class="flex-1 py-2 rounded-lg text-sm font-bold transition"
+                  >
+                    Pending
+                  </button>
+                  <button
+                    @click="filterStatus(true)"
+                    :class="
+                      taskStore.filters.status === true
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    "
+                    class="flex-1 py-2 rounded-lg text-sm font-bold transition"
+                  >
+                    Completed
+                  </button>
+                </div>
+              </div>
 
-        <button
-          @click="filterStatus(false)"
-          :class="
-            taskStore.currentFilter.type === 'status' && taskStore.currentFilter.value === false
-              ? 'bg-blue-900 text-white'
-              : 'bg-blue-600 border'
-          "
-          class="px-4 py-2 rounded-lg text-sm font-medium transition"
-        >
-          Pending
-        </button>
-
-        <button
-          @click="filterStatus(true)"
-          :class="
-            taskStore.currentFilter.type === 'status' && taskStore.currentFilter.value === true
-              ? 'bg-green-900 text-white'
-              : 'bg-green-600 border'
-          "
-          class="px-4 py-2 rounded-lg text-sm font-medium transition"
-        >
-          Done
-        </button>
-
-        <div class="flex items-center gap-2 border-l pl-2 ml-2 border-gray-300">
-          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:inline"
-            >Priority</span
-          >
-
-          <button
-            @click="filterPriority('high')"
-            :class="
-              taskStore.currentFilter.type === 'priority' &&
-              taskStore.currentFilter.value === 'high'
-                ? 'bg-red-100 text-red-700 ring-2 ring-red-500 ring-offset-1'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-red-50'
-            "
-            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
-          >
-            High
-          </button>
-
-          <button
-            @click="filterPriority('medium')"
-            :class="
-              taskStore.currentFilter.type === 'priority' &&
-              taskStore.currentFilter.value === 'medium'
-                ? 'bg-yellow-100 text-yellow-700 ring-2 ring-yellow-500 ring-offset-1'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-yellow-50'
-            "
-            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
-          >
-            Medium
-          </button>
-
-          <button
-            @click="filterPriority('low')"
-            :class="
-              taskStore.currentFilter.type === 'priority' && taskStore.currentFilter.value === 'low'
-                ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500 ring-offset-1'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-blue-50'
-            "
-            class="px-3 py-1.5 rounded-md text-xs font-bold transition"
-          >
-            Low
-          </button>
+              <div>
+                <span class="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-3"
+                  >Priority</span
+                >
+                <div class="flex gap-2 justify-center md:justify-start">
+                  <button
+                    v-for="prio in ['low', 'medium', 'high']"
+                    :key="prio"
+                    @click="filterPriority(prio)"
+                    :class="[
+                      'flex-1 py-2 rounded-lg text-sm font-bold transition capitalize',
+                      taskStore.filters.priority === prio
+                        ? prio === 'high'
+                          ? 'bg-red-600 text-white'
+                          : prio === 'medium'
+                            ? 'bg-yellow-500 text-white'
+                            : 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                    ]"
+                  >
+                    {{ prio }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <button
           @click="openAddModal"
-          class="bg-gray-700 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 mx-auto transition"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 mx-auto transition-transform hover:scale-105 shadow-lg shadow-blue-100"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+            viewBox="0 0 20 20"
+            fill="currentColor"
           >
             <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4v16m8-8H4"
+              fill-rule="evenodd"
+              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+              clip-rule="evenodd"
             />
           </svg>
-          Add new task
+          Create New Task
         </button>
-      </div>
+      </header>
 
-      <div class="space-y-3">
+      <div class="grid gap-4">
+        <div v-if="taskStore.isLoading" class="text-center py-4 text-blue-600 font-medium">
+          Updating results...
+        </div>
+
         <div
           v-for="task in taskStore.tasks"
           :key="task.id"
-          class="bg-white border border-gray-300 rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden"
+          class="bg-white border border-gray-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4"
         >
-          <div class="flex items-start gap-4 p-4">
+          <!-- Checkbox -->
+          <div class="flex items-center">
             <input
               type="checkbox"
               :checked="task.completed"
               @change="toggleTask(task.id)"
-              class="w-5 h-5 mt-1 cursor-pointer accent-gray-600 shrink-0"
+              class="w-6 h-6 cursor-pointer accent-blue-600 shrink-0 rounded-full"
             />
+          </div>
 
-            <div class="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-gray-100">
-              <img
-                v-if="!imageErrors[task.id] && task.image_url"
-                :src="task.image_url"
-                :alt="task.title"
-                @error="handleImageError(task.id)"
-                class="w-full h-full object-cover"
-              />
-              <img v-else :src="imgError" alt="Fallback" class="w-full h-full object-cover" />
-            </div>
+          <div
+            class="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100"
+          >
+            <img
+              v-if="!imageErrors[task.id] && task.image_url"
+              :src="task.image_url"
+              :alt="task.title"
+              @error="handleImageError(task.id)"
+              class="w-full h-full object-cover"
+            />
+            <img v-else :src="imgError" alt="Fallback" class="w-full h-full object-cover" />
+          </div>
 
-            <div class="flex-1 min-w-0">
-              <h3
-                class="font-semibold text-gray-700 mb-1"
-                :class="{ 'line-through text-gray-400': task.completed }"
+          <div class="flex-1 min-w-0 text-center sm:text-left">
+            <h3
+              class="text-lg font-bold text-gray-800 mb-1"
+              :class="{ 'line-through text-gray-400 opacity-70': task.completed }"
+            >
+              {{ task.title }}
+            </h3>
+            <p
+              class="text-sm text-gray-500 mb-3 line-clamp-1"
+              :class="{ 'line-through opacity-50': task.completed }"
+            >
+              {{ task.description || 'No description provided' }}
+            </p>
+
+            <div class="flex flex-wrap justify-center sm:justify-start gap-2">
+              <span
+                v-if="getCategoryById(task.category_id)"
+                class="px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider text-white flex items-center gap-1.5"
+                :style="{ backgroundColor: getCategoryById(task.category_id)?.color }"
               >
-                {{ task.title }}
-              </h3>
-              <p
-                class="text-sm text-gray-900 mb-2 line-clamp-2"
-                :class="{ 'line-through text-gray-400': task.completed }"
+                {{ getCategoryById(task.category_id)?.name }}
+              </span>
+              <span
+                class="px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                :class="{
+                  'bg-red-100 text-red-700': task.priority === 'high',
+                  'bg-yellow-100 text-yellow-700': task.priority === 'medium',
+                  'bg-blue-100 text-blue-700': task.priority === 'low',
+                }"
               >
-                {{ task.description }}
-              </p>
-
-              <div class="flex flex-wrap gap-2 text-xs">
-                <span
-                  v-if="getCategoryById(task.category_id)"
-                  class="px-2 py-1 rounded-md font-medium text-white flex items-center gap-1"
-                  :style="{ backgroundColor: getCategoryById(task.category_id)?.color }"
-                >
-                  <img
-                    v-if="getCategoryById(task.category_id)?.icon_url"
-                    :src="getCategoryById(task.category_id)?.icon_url"
-                    :class="{
-                      grayscale: getCategoryById(task.category_id)?.image_filter === 'grayscale',
-                      sepia: getCategoryById(task.category_id)?.image_filter === 'sepia',
-                      'blur-sm': getCategoryById(task.category_id)?.image_filter === 'blur',
-                    }"
-                    alt="icon"
-                    class="w-4 h-4"
-                  />
-                  {{ getCategoryById(task.category_id)?.name }}
-                </span>
-                <span
-                  class="px-2 py-1 rounded-md font-medium"
-                  :class="{
-                    'bg-red-100 text-red-700': task.priority === 'high',
-                    'bg-yellow-100 text-yellow-700': task.priority === 'medium',
-                    'bg-blue-100 text-blue-700': task.priority === 'low',
-                  }"
-                >
-                  {{ task.priority }}
-                </span>
-                <span class="px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-700">
-                  {{ formatDate(task.due_date) }}
-                </span>
-              </div>
+                {{ task.priority }}
+              </span>
+              <span
+                class="px-2.5 py-1 rounded-lg font-bold text-[10px] uppercase tracking-wider bg-gray-100 text-gray-600"
+              >
+                {{ formatDate(task.due_date) }}
+              </span>
             </div>
+          </div>
 
+          <div class="flex sm:flex-col gap-2 shrink-0">
             <button
               @click="openEditModal(task)"
-              class="text-gray-400 hover:text-blue-600 transition shrink-0 p-1"
-              title="Edit"
+              class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -351,15 +346,13 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                 />
               </svg>
             </button>
-
             <button
               @click="confirmDelete(task.id)"
-              class="text-gray-400 hover:text-red-600 transition shrink-0 p-1"
-              title="Delete"
+              class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -372,7 +365,7 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                 />
               </svg>
             </button>
@@ -380,20 +373,37 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
         </div>
       </div>
 
-      <div v-if="!taskStore.isLoading && taskStore.tasks.length === 0" class="text-center py-12">
-        <p class="text-lg text-gray-600 mb-4">No tasks found</p>
-        <button
-          @click="openAddModal"
-          class="bg-gray-700 hover:bg-gray-800 text-white px-6 py-2 rounded-lg text-sm font-medium transition"
-        >
-          Create your first task
+      <div
+        v-if="!taskStore.isLoading && taskStore.tasks.length === 0"
+        class="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100"
+      >
+        <div class="text-5xl mb-4">🔍</div>
+        <p class="text-gray-500 font-medium mb-4">No tasks match your current filters</p>
+        <button @click="clearFilters" class="text-blue-600 font-bold hover:underline">
+          Clear all filters
         </button>
       </div>
 
-      <div class="mt-8 text-center text-gray-500">
-        <p class="text-sm mb-2">
-          Your remaining todos: <span class="font-semibold">{{ remainingTasks }}</span>
-        </p>
+      <div class="flex justify-center items-center gap-6 mt-12">
+        <button
+          @click="prevPage"
+          :disabled="taskStore.currentPage === 1 || taskStore.isLoading"
+          class="flex items-center gap-2 px-5 py-2 rounded-xl border border-gray-200 font-bold text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition"
+        >
+          Prev
+        </button>
+        <span class="text-sm font-bold text-gray-800">Page {{ taskStore.currentPage }}</span>
+        <button
+          @click="nextPage"
+          :disabled="!taskStore.hasMoreTasks || taskStore.isLoading"
+          class="flex items-center gap-2 px-5 py-2 rounded-xl border border-gray-200 font-bold text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition"
+        >
+          Next
+        </button>
+      </div>
+
+      <div class="mt-8 text-center text-gray-400 text-sm font-medium">
+        Pending Tasks: <span class="text-blue-600">{{ remainingTasks }}</span>
       </div>
     </div>
 
@@ -406,80 +416,73 @@ const remainingTasks = computed(() => taskStore.tasks.filter((t) => !t.completed
       @save="saveTask"
     />
 
-    <div class="flex justify-center items-center gap-4 mt-8 pt-4 border-t border-gray-100">
-      <button
-        @click="prevPage"
-        :disabled="taskStore.currentPage === 1 || taskStore.isLoading"
-        class="btn btn-outline btn-sm bg-gray-950"
+    <div v-if="toast.show" class="fixed bottom-8 right-8 z-100 animate-bounce">
+      <div
+        :class="toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'"
+        class="text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3"
       >
-        Previous
-      </button>
-
-      <span class="text-sm font-medium text-gray-600"> Page {{ taskStore.currentPage }} </span>
-
-      <button
-        @click="nextPage"
-        :disabled="!taskStore.hasMoreTasks || taskStore.isLoading"
-        class="btn btn-outline btn-sm bg-gray-950"
-      >
-        Next
-      </button>
-    </div>
-
-    <div v-if="toast.show" class="toast toast-end toast-bottom z-50">
-      <div class="alert" :class="toast.type === 'error' ? 'alert-error' : 'alert-success'">
-        <svg
-          v-if="toast.type === 'success'"
-          xmlns="http://www.w3.org/2000/svg"
-          class="stroke-current shrink-0 h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <svg
-          v-else
-          xmlns="http://www.w3.org/2000/svg"
-          class="stroke-current shrink-0 h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-
-        <span class="text-white font-medium">{{ toast.message }}</span>
+        <span v-if="toast.type === 'success'">✅</span>
+        <span v-else>⚠️</span>
+        {{ toast.message }}
       </div>
     </div>
 
     <Transition name="modal">
       <div
         v-if="deleteModalOpen"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-110 p-4"
       >
-        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-          <h3 class="font-bold text-lg text-gray-800">Delete Task?</h3>
-          <p class="py-4 text-gray-600">
-            Are you sure you want to delete this task? This action cannot be undone.
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl scale-in-center">
+          <div
+            class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-600 text-3xl mb-4 mx-auto"
+          >
+            🗑️
+          </div>
+          <h3 class="text-xl font-extrabold text-gray-800 text-center mb-2">Delete Task?</h3>
+          <p class="text-gray-500 text-center mb-8">
+            This action is permanent and cannot be reversed.
           </p>
-          <div class="modal-action flex gap-2 mt-0">
-            ->
-            <button class="btn btn-ghost flex-1 bg-gray-900" @click="deleteModalOpen = false">
+          <div class="flex gap-3">
+            <button
+              @click="deleteModalOpen = false"
+              class="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+            >
               Cancel
             </button>
-            <button class="btn btn-error text-white flex-1" @click="executeDelete">Delete</button>
+            <button
+              @click="executeDelete"
+              class="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition"
+            >
+              Delete
+            </button>
           </div>
         </div>
       </div>
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.scale-in-center {
+  animation: scale-in-center 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+@keyframes scale-in-center {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+</style>

@@ -50,16 +50,16 @@ export const useTaskStore = defineStore('task', {
         // by category
 
         if (this.filters.category !== null) {
-          query += `category_id=eq.${this.filters.category}`
+          query += `&category_id=eq.${this.filters.category}`
         }
 
         // by status
         if (this.filters.status !== null) {
-          query += `completed=eq.${this.filters.status}`
+          query += `&completed=eq.${this.filters.status}`
         }
         // by priority
         if (this.filters.priority !== null) {
-          query += `priority=eq.${this.filters.priority}`
+          query += `&priority=eq.${this.filters.priority}`
         }
         const { data } = await apiClient.get<Task[]>(query)
 
