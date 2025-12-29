@@ -2,8 +2,11 @@ import { defineStore } from 'pinia'
 import apiClient from '../services/api'
 import type { Task, Category, CreateTaskPayload } from '../types'
 
-type FilterType = 'all' | 'category' | 'status' | 'priority'
-type FilterValue = number | boolean | string | null
+interface TaskFilters {
+  category: number | null
+  status: boolean | null
+  priority: string | null
+}
 
 export const useTaskStore = defineStore('task', {
   state: () => ({
@@ -16,9 +19,10 @@ export const useTaskStore = defineStore('task', {
     itemsPerPage: 6,
     hasMoreTasks: true,
 
-    currentFilter: {
-      type: 'all' as FilterType,
-      value: null as FilterValue,
+    filters: {
+      category: null as number | null,
+      status: null as boolean | null,
+      priority: null as string | null,
     },
   }),
 
@@ -39,36 +43,55 @@ export const useTaskStore = defineStore('task', {
 
       try {
         const offset = (this.currentPage - 1) * this.itemsPerPage
+
         let query = `/tasks?order=created_at.desc&limit=${this.itemsPerPage}&offset=${offset}`
 
-        if (this.currentFilter.type === 'category') {
-          query += `&category_id=eq.${this.currentFilter.value}`
-        } else if (this.currentFilter.type === 'status') {
-          query += `&completed=eq.${this.currentFilter.value}`
-        } else if (this.currentFilter.type === 'priority') {
-          query += `&priority=eq.${this.currentFilter.value}`
+        //  filters
+        // by category
+
+        if (this.filters.category !== null) {
+          query += `category_id=eq.${this.filters.category}`
         }
 
+        // by status
+        if (this.filters.status !== null) {
+          query += `completed=eq.${this.filters.status}`
+        }
+        // by priority
+        if (this.filters.priority !== null) {
+          query += `priority=eq.${this.filters.priority}`
+        }
         const { data } = await apiClient.get<Task[]>(query)
 
         this.tasks = data
-
         this.hasMoreTasks = data.length === this.itemsPerPage
       } catch (err: unknown) {
         this.error = 'Failed to load tasks'
-
         if (err instanceof Error) {
-          console.error(err.message)
-        } else {
-          console.error('An unknown error occurred', err)
+          console.error('Error fetching tasks', err.message)
         }
       } finally {
         this.isLoading = false
       }
     },
 
-    setFilter(type: FilterType, value: FilterValue = null) {
-      this.currentFilter = { type, value }
+    updateFilter<K extends keyof TaskFilters>(type: K, value: TaskFilters[K]) {
+      if (this.filters[type] === value) {
+        this.filters[type] = null as TaskFilters[K]
+      } else {
+        this.filters[type] = value
+      }
+
+      this.currentPage = 1
+      this.fetchTasks()
+    },
+
+    clearAllFilters() {
+      this.filters = {
+        category: null,
+        status: null,
+        priority: null,
+      }
       this.currentPage = 1
       this.fetchTasks()
     },
@@ -82,9 +105,11 @@ export const useTaskStore = defineStore('task', {
     async addTask(payload: CreateTaskPayload) {
       try {
         const { data } = await apiClient.post<Task[]>('/tasks', payload)
-
         if (data && data[0]) {
           this.tasks.unshift(data[0])
+          if (this.tasks.length > this.itemsPerPage) {
+            this.tasks.pop()
+          }
         }
       } catch (err) {
         console.error('Failed to create task:', err)
@@ -111,6 +136,11 @@ export const useTaskStore = defineStore('task', {
       try {
         await apiClient.delete(`/tasks?id=eq.${id}`)
         this.tasks = this.tasks.filter((t) => t.id !== id)
+        if (this.tasks.length === 0 && this.currentPage > 1) {
+          this.changePage(this.currentPage - 1)
+        } else {
+          this.fetchTasks()
+        }
       } catch (err) {
         console.error('Failed to delete task:', err)
         throw err
